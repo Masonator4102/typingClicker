@@ -39,6 +39,11 @@ allKeysImg = pygame.image.load('resources/allKeys.png')
 with open('resources/words.txt', 'r') as f:
     WORDS = f.read().split()
 
+# set to True to simulate an empty words list for testing
+TEST_EMPTY_WORDS = True
+if TEST_EMPTY_WORDS:
+    WORDS = []
+
 #========Variables========
 nextWordsList = deque()
 pastWordsList = deque()
@@ -131,7 +136,7 @@ for i, pos in otherKeyPositions.items():
 
 def grabWord():
     if not WORDS:
-        return False
+        return None
     return random.choice(WORDS)
 
 def onSuccessfulTypedWord():
@@ -146,7 +151,9 @@ def onSuccessfulTypedWord():
 
     typedBuffer = ""
 
-    nextWordsList.append(grabWord())
+    new_word = grabWord()
+    if new_word is not None:
+        nextWordsList.append(new_word)
 
 def checkIfCurrentWordTyped(typedBuffer):
     currentWord = nextWordsList[0]
@@ -177,7 +184,9 @@ def createFadeMask(width, height, fadeOut):
 
 #Generate the initial list of words and sets the currentWord to the first in the list
 for i in range(10):
-    nextWordsList.append(grabWord())
+    word = grabWord()
+    if word is not None:
+        nextWordsList.append(word)
 
 #Generate the masks that create the fade effect on the text
 rightMask = createFadeMask(900,100, True)
@@ -207,8 +216,9 @@ def drawNextWords():
                 if ch == typedBuffer[i]:
                     color = correctWordColor 
                 else:
-                    errorBoxX = getWordPxWidth(nextWordsList[0]) 
-                    pygame.draw.rect(nextWordsSurface, incorrectWordColor, (errorBoxX + 10 , 70, 20, 10))
+                    if nextWordsList:
+                        errorBoxX = getWordPxWidth(nextWordsList[0]) 
+                        pygame.draw.rect(nextWordsSurface, incorrectWordColor, (errorBoxX + 10 , 70, 20, 10))
                     color = incorrectWordColor
         else:
             color = defaultWordColor
@@ -311,6 +321,13 @@ while running:
     # draw past first, then current/next
     screen.blit(pastWordsSurface, (baseX, y))
     screen.blit(nextWordsSurface, (baseX + pXsAdvanced, y))
+
+    # if testing (or actual) empty words, show a friendly message
+    if not WORDS and not nextWordsList:
+        msg_surface = wordsFont.render("No words found", True, (0,0,0))
+        mx = (screen.get_width() - msg_surface.get_width()) // 2
+        my = y + 120
+        screen.blit(msg_surface, (mx, my))
 
     # (optional) caret to visualize the anchor
     # pygame.draw.rect(screen, (0,0,0), (anchorX, y+5, 2, 70))
