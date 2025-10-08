@@ -19,6 +19,10 @@ displayWidth, displayHeight = 1920, 1080
 screen = pygame.display.set_mode((displayWidth, displayHeight))
 
 
+#Setting up surface(s) on which we can display our particle effects.
+particlesSurface = pygame.Surface((displayWidth, displayHeight), pygame.SRCALPHA)
+particlesSurface.fill((0,0,0,0))
+
 #Fonts
 pixelifyFontPath = "resources/PixelifySans-SemiBold.ttf"
 wordsFont = pygame.font.Font(pixelifyFontPath, size = 75)
@@ -35,12 +39,17 @@ deskImg = pygame.image.load('resources/desk.png')
 frameImg = pygame.image.load('resources/frame.png')
 allKeysImg = pygame.image.load('resources/allKeys.png')
 
+coinSpriteImgs = [
+    pygame.image.load(f"resources/coinSprite{i}.png").convert_alpha()
+    for i in range(1,9)
+]
+
 #load all the Words
 with open('resources/words.txt', 'r') as f:
     WORDS = f.read().split()
 
 # set to True to simulate an empty words list for testing
-TEST_EMPTY_WORDS = True
+TEST_EMPTY_WORDS = False
 if TEST_EMPTY_WORDS:
     WORDS = []
 
@@ -51,7 +60,8 @@ nextWordsString = ""
 pastWordsString = ""
 typedBuffer = ""
 currentWordPxLen = 0
-pXsAdvanced = 0
+baseX = displayWidth / 2
+baseY = displayHeight/ 10
 
 #Key and letter positions
 letterKeyPositions = {
@@ -105,6 +115,41 @@ otherKeyNames = {
     pygame.K_COMMA:     "Comma",    
 }
 
+#####==============CLASSES========================#####
+class CoinSprite:
+
+    def __init__(self, x, y):
+        self.xPos = x
+        self.yPos = y
+        self.yVelocity = -8         #the initial velocity of the coin
+        self.xVelocity = random.uniform(-2, 2)
+        self.gravity = 0.1
+        self.animFrame = 0      #track how many actual game frames have passed
+        self.animSpeed = 20     #the speed the images change, lower is faster
+        self.imgIndex = 0       #pointer to the images in coinSpriteImgs[]
+
+
+    #handle rising and updating image to animate the sprite
+    def update(self):
+        self.yPos += self.yVelocity
+        self.xPos += self.xVelocity
+        self.yVelocity += self.gravity
+        if(self.imgIndex < 7):
+            self.animFrame += 1
+        else:
+            self.imgIndex = 0
+
+        if self.animFrame % self.animSpeed == 0:
+            self.imgIndex += 1
+
+    #post the particle to the particlessurface to be displayed
+    def post(self):
+        particlesSurface.blit(coinSpriteImgs[self.imgIndex], (self.xPos, self.yPos))
+
+
+#Initializing array to hold instances of coin particles
+coinParticles = []
+
 #create a list of images tied to their respective letter
 pressedLetterImgList = {}
 for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" :
@@ -140,27 +185,17 @@ def grabWord():
     return random.choice(WORDS)
 
 def onSuccessfulTypedWord():
-    global pastWordsList, nextWordsList, typedBuffer, pXsAdvanced
+    global pastWordsList, nextWordsList, typedBuffer
     if not nextWordsList:
         return
     word = nextWordsList.popleft()
     pastWordsList.append(word)
-
-    # advance by the exact pixels of "word + space" (matches your per-char render)
-    pXsAdvanced += wordsFont.size(word + " ")[0]
 
     typedBuffer = ""
 
     new_word = grabWord()
     if new_word is not None:
         nextWordsList.append(new_word)
-
-def checkIfCurrentWordTyped(typedBuffer):
-    currentWord = nextWordsList[0]
-    if typedBuffer == currentWord + " ":
-        onSuccessfulTypedWord()
-    else:
-        return
 
 def setPressedKeys(keys):
 
@@ -179,7 +214,7 @@ def createFadeMask(width, height, fadeOut):
         else:
             t = x / (width - 1)
             a = int(255 * (1-t))
-            pygame.draw.line(maskSurface, (r,g,b,a), (x,0), (x,height-1))            
+            pygame.draw.line(maskSurface, (r,g,b,a), (x,0), (x,height-1))        
     return maskSurface
 
 #Generate the initial list of words and sets the currentWord to the first in the list
@@ -193,6 +228,7 @@ rightMask = createFadeMask(900,100, True)
 leftMask = createFadeMask(400,100, False)
 coverTextMask = pygame.surface.Surface((450,100))
 coverTextMask.fill((backgroundColor))
+
 
 #Draws all the words in nextWordsList on a single surface to put on the screen. Also creates a string containing all the letters on the surface
 def drawNextWords():
@@ -233,16 +269,19 @@ def drawNextWords():
 def drawPastWords():
     global pastWordsString
     pastWordsString = " ".join(pastWordsList)
-    if not pastWordsString:
-        return pygame.Surface((1,100), pygame.SRCALPHA)
-    return wordsFont.render(pastWordsString, True, defaultWordColor)
+    surfaceWidth, _ = wordsFont.size(nextWordsString)
 
-    cX = 0
-    for c in pastWordsString:
-        currentLetter = wordsFont.render(c, True, defaultWordColor)
-        nextWordsSurface.blit(currentLetter, (cX, 0))
-        cX += currentLetter.get_width()
-    return nextWordsSurface
+    pastWordsSurface = pygame.Surface((surfaceWidth, 100), pygame.SRCALPHA)
+    pastWordsSurface.fill((0,0,0,0))
+
+    pastWordsText = wordsFont.render(pastWordsString, True, defaultWordColor)
+    pastWordsSurface.blit(pastWordsText, (0,0))
+
+    #pop items from pastWordsList when they're no longer shown to prevent issues with surface placement
+    if getWordPxWidth(pastWordsString) > displayWidth/2 - 10:
+        pastWordsList.popleft()
+
+    return pastWordsSurface
 
 #Used to get half the current word's width to adjust where the nextWords surface is drawn
 def getWordPxWidth(word):
@@ -276,7 +315,9 @@ def handleKeysDown(event):
 
     if event.key == pygame.K_SPACE:
         if nextWordsList and typedBuffer == nextWordsList[0]:
-            onSuccessfulTypedWord()   # <-- bump scroll + move word + refill + clear buffer
+            onSuccessfulTypedWord()
+        else:
+            typedBuffer += " "
         return
 
     ch = event.unicode
@@ -308,33 +349,29 @@ while running:
     pastWordsSurface = drawPastWords()
     nextWordsSurface = drawNextWords()
 
-    # derive scroll purely from what you actually rendered for "past"
-    # (adds exactly one space of gap between past and current)
-    has_past   = bool(pastWordsList)
-    space_w    = wordsFont.size(" ")[0] if has_past else 0
-    pXsAdvanced = pastWordsSurface.get_width() + space_w  # <-- recomputed, no accumulation drift
-
-    anchorX = screen.get_width() // 2
-    baseX   = anchorX - pXsAdvanced
-    y       = 100
-
-    # draw past first, then current/next
-    screen.blit(pastWordsSurface, (baseX, y))
-    screen.blit(nextWordsSurface, (baseX + pXsAdvanced, y))
+    # draw the word surfaces to the screen
+    screen.blit(pastWordsSurface, (baseX - getWordPxWidth(pastWordsString + " "), baseY))
+    screen.blit(nextWordsSurface, (baseX, baseY))
 
     # if testing (or actual) empty words, show a friendly message
     if not WORDS and not nextWordsList:
         msg_surface = wordsFont.render("No words found", True, (0,0,0))
         mx = (screen.get_width() - msg_surface.get_width()) // 2
-        my = y + 120
+        my = baseY + 120
         screen.blit(msg_surface, (mx, my))
 
-    # (optional) caret to visualize the anchor
-    # pygame.draw.rect(screen, (0,0,0), (anchorX, y+5, 2, 70))
-
-    screen.blit(rightMask, (1100, 100))
-    screen.blit(leftMask,(450,100))
+    screen.blit(rightMask, (1100, baseY))
+    screen.blit(leftMask,(450,baseY))
     screen.blit(coverTextMask,(0,100))
+
+    #Blit the particle surface to the screen
+    particlesSurface.fill((0,0,0,0))
+    for p in coinParticles:
+        p.update()
+        p.post()
+    screen.blit(particlesSurface,(0,0))
+
+
     pygame.display.flip()
 
 
