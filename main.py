@@ -25,9 +25,14 @@ screen = pygame.display.set_mode((displayWidth, displayHeight))
 particlesSurface = pygame.Surface((displayWidth, displayHeight), pygame.SRCALPHA)
 particlesSurface.fill((0,0,0,0))
 
+#Setting up surface(s) on which we can display our non typing words
+otherTextSurface = pygame.Surface((displayWidth, displayHeight), pygame.SRCALPHA)
+otherTextSurface.fill((0,0,0,0))
+
 #Fonts
-pixelifyFontPath = "resources/PixelifySans-SemiBold.ttf"
+pixelifyFontPath = "resources/Fonts/PixelifySans-SemiBold.ttf"
 wordsFont = pygame.font.Font(pixelifyFontPath, size = 75)
+otherTextFont = pygame.font.Font(pixelifyFontPath, size = 50)
 
 #Colors
 correctWordColor = (30,255,20)
@@ -37,12 +42,12 @@ defaultWordColor = (0,0,0)
 backgroundColor = (200,200,200)
 
 #load images
-deskImg = pygame.image.load('resources/desk.png')
-frameImg = pygame.image.load('resources/frame.png')
-allKeysImg = pygame.image.load('resources/allKeys.png')
+deskImg = pygame.image.load('resources/Sprites/desk.png')
+frameImg = pygame.image.load('resources/Sprites/frame.png')
+allKeysImg = pygame.image.load('resources/Sprites/allKeys.png')
 
 #load all the Words
-with open('resources/words.txt', 'r') as f:
+with open('resources/WordBanks/words.txt', 'r') as f:
     WORDS = f.read().split()
 
 # set to True to simulate an empty words list for testing
@@ -113,6 +118,65 @@ otherKeyNames = {
     pygame.K_COMMA:     "Comma",    
 }
 
+#####=========GAME STATE/PROGRESS VARIABLES==========######
+
+totalMoney = 0
+moneyPerKey = {
+    "a" : 1,
+    "A" : 1,
+    "b" : 1,
+    "B" : 1,
+    "c" : 1,
+    "C" : 1,
+    "d" : 1,
+    "D" : 1,
+    "e" : 1,
+    "E" : 1,
+    "f" : 1,    
+    "F" : 1,
+    "g" : 1,
+    "G" : 1,
+    "h" : 1,
+    "H" : 1,
+    "i" : 1,
+    "I" : 1,
+    "j" : 1,
+    "J" : 1,
+    "k" : 1,
+    "K" : 1,    
+    "l" : 1,
+    "L" : 1,
+    "m" : 1,
+    "M" : 1,
+    "n" : 1,
+    "N" : 1,
+    "o" : 1,
+    "O" : 1,
+    "p" : 1,
+    "P" : 1,
+    "q" : 1,
+    "Q" : 1,
+    "r" : 1,
+    "R" : 1,
+    "s" : 1,
+    "S" : 1,
+    "t" : 1,
+    "T" : 1,
+    "u" : 1,
+    "U" : 1,
+    "v" : 1,
+    "V" : 1,
+    "w" : 1,
+    "W" : 1,
+    "x" : 1,
+    "X" : 1,
+    "y" : 1,
+    "Y" : 1,
+    "z" : 1,
+    "Z" : 1,
+    }    
+    
+
 
 #####==============CLASSES========================#####
 
@@ -149,7 +213,7 @@ class SpriteSheet(object):
 #Class to hold the coin sprite and handle animating/updating the coin particles
 class CoinSprite(pygame.sprite.Sprite):
 
-    spriteSheet = SpriteSheet("resources/coinSpriteSheet.png")
+    spriteSheet = SpriteSheet("resources/Sprites/coinSpriteSheet.png")
     FRAMES = spriteSheet.load_strip((0, 0, 20, 20), image_count=8, colorkey=-1)
 
     def __init__(self, x, y):
@@ -186,11 +250,11 @@ coinsSpriteGroup = pygame.sprite.Group()
 #create a list of images tied to their respective letter
 pressedLetterImgList = {}
 for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" :
-    pressedLetterImgList[letter] = pygame.image.load(f"resources/pressed{letter}.png")
+    pressedLetterImgList[letter] = pygame.image.load(f"resources/Sprites/pressed{letter}.png")
 
 pressedKeyImgList = {}
 for key in ["Colon", "Comma", "Delete", "lShift", "Period", "Question", "Quote", "rShift", "Space"] :
-    pressedKeyImgList[key] = pygame.image.load(f"resources/pressed{key}.png")
+    pressedKeyImgList[key] = pygame.image.load(f"resources/Sprites/pressed{key}.png")
 
 #When a keycode enters, a plain text version returns
 def letterLabelfromKey(keycode):
@@ -222,16 +286,35 @@ def grabWord():
         return None
     return random.choice(WORDS)
 
+
+def calculateMoney(word):
+    wordScore = 0
+
+    for c in word:
+        if(c in moneyPerKey):
+            wordScore += moneyPerKey[c]
+        else:
+            print("you messed up")
+
+    return wordScore
+
+
+
 def onSuccessfulTypedWord():
-    global pastWordsList, nextWordsList, typedBuffer
+    global pastWordsList, nextWordsList, typedBuffer, totalMoney
     if not nextWordsList:
         return
     word = nextWordsList.popleft()
     pastWordsList.append(word)
 
-    typedBuffer = ""
 
-    spawnCoin(baseX + getWordPxWidth(nextWordsList[0]) / 2, baseY + 50, 10)
+    spawnCoin(baseX + getWordPxWidth(nextWordsList[0]) / 2, baseY + 50, calculateMoney(typedBuffer))
+    totalMoney +=  calculateMoney(typedBuffer)
+    totalMoneyText = otherTextFont.render(str(totalMoney), True, (0,0,0,0))
+    otherTextSurface.fill((0,0,0,0))
+    otherTextSurface.blit(totalMoneyText, (10,10))
+
+    typedBuffer = ""
 
     new_word = grabWord()
     if new_word is not None:
@@ -293,8 +376,9 @@ def drawNextWords():
                     color = correctWordColor 
                 else:
                     if nextWordsList:
-                        errorBoxX = getWordPxWidth(nextWordsList[0]) 
-                        pygame.draw.rect(nextWordsSurface, incorrectWordColor, (errorBoxX + 10 , 70, 20, 10))
+                        errorBoxX = getWordPxWidth(nextWordsList[0]) * 1.02
+                        errorBoxW = getWordPxWidth(" ") + 5
+                        pygame.draw.rect(nextWordsSurface, incorrectWordColor, (errorBoxX, 70, errorBoxW, 10))
                     color = incorrectWordColor
         else:
             color = defaultWordColor
@@ -411,6 +495,7 @@ while running:
     coinsSpriteGroup.update(dt, screen_rect)
     particlesSurface.fill((0,0,0,0))
     coinsSpriteGroup.draw(particlesSurface)
+    screen.blit(otherTextSurface,(0,0))
     screen.blit(particlesSurface,(0,0))
 
 
