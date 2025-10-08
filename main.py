@@ -6,6 +6,8 @@ from collections import deque
 
 #pygame setup
 pygame.init()
+clock = pygame.time.Clock()
+targetFPS = 60
 running = True
 
 
@@ -39,11 +41,6 @@ deskImg = pygame.image.load('resources/desk.png')
 frameImg = pygame.image.load('resources/frame.png')
 allKeysImg = pygame.image.load('resources/allKeys.png')
 
-coinSpriteImgs = [
-    pygame.image.load(f"resources/coinSprite{i}.png").convert_alpha()
-    for i in range(1,9)
-]
-
 #load all the Words
 with open('resources/words.txt', 'r') as f:
     WORDS = f.read().split()
@@ -62,6 +59,7 @@ typedBuffer = ""
 currentWordPxLen = 0
 baseX = displayWidth / 2
 baseY = displayHeight/ 10
+coinsOriginLoc = displayWidth/10, displayHeight/10
 
 #Key and letter positions
 letterKeyPositions = {
@@ -115,40 +113,75 @@ otherKeyNames = {
     pygame.K_COMMA:     "Comma",    
 }
 
+
 #####==============CLASSES========================#####
-class CoinSprite:
+
+#All purpose sprite class with support for color keys, see immediately below for useage
+class SpriteSheet(object):
+
+    def __init__ (self, filename):
+        try:
+            self.sheet = pygame.image.load(filename).convert_alpha()
+        except:
+            print("Unable to load spritesheet image: "), filename
+            raise SystemExit
+
+    def image_at(self, rectangle, colorkey = None):
+        rect = pygame.Rect(rectangle)
+        image = pygame.Surface(rect.size, flags = pygame.SRCALPHA)
+        image.blit(self.sheet,(0,0), rect)
+        if colorkey is not None:
+            if colorkey == -1:
+                colorkey = image.get_at((0,0))
+            image.set_colorkey(colorkey,pygame.RLEACCEL)
+        return image
+
+    def images_at(self, rects, colorkey = None):
+        return [self.image_at(rect, colorkey) for rect in rects]
+
+    def load_strip(self, rect, image_count, colorkey = None):
+        tups = [(rect[0] + rect[2]*x, rect[1], rect[2], rect[3])
+            for x in range(image_count)]
+        return self.images_at(tups, colorkey)
+
+
+
+#Class to hold the coin sprite and handle animating/updating the coin particles
+class CoinSprite(pygame.sprite.Sprite):
+
+    spriteSheet = SpriteSheet("resources/coinSpriteSheet.png")
+    FRAMES = spriteSheet.load_strip((0, 0, 20, 20), image_count=8, colorkey=-1)
 
     def __init__(self, x, y):
-        self.xPos = x
-        self.yPos = y
-        self.yVelocity = -8         #the initial velocity of the coin
-        self.xVelocity = random.uniform(-2, 2)
-        self.gravity = 0.1
-        self.animFrame = 0      #track how many actual game frames have passed
-        self.animSpeed = 20     #the speed the images change, lower is faster
-        self.imgIndex = 0       #pointer to the images in coinSpriteImgs[]
+        super().__init__()
+        self.frames = self.FRAMES           
+        self.frame_index = 0.0
+        self.xNudge = random.uniform(-50, 50)
+        self.fps = 16                
 
+        self.image = self.frames[0]
+        self.rect = self.image.get_rect(topleft=(x + self.xNudge, y))
 
-    #handle rising and updating image to animate the sprite
-    def update(self):
-        self.yPos += self.yVelocity
-        self.xPos += self.xVelocity
-        self.yVelocity += self.gravity
-        if(self.imgIndex < 7):
-            self.animFrame += 1
-        else:
-            self.imgIndex = 0
+        self.vx = random.uniform(-2, 2)
+        self.vy = random.uniform(-2,-8)
+        self.gravity = 0.3
 
-        if self.animFrame % self.animSpeed == 0:
-            self.imgIndex += 1
+    def update(self, dt, screen_rect):
+        # physics
+        self.rect.x += self.vx
+        self.rect.y += self.vy
+        self.vy += self.gravity
 
-    #post the particle to the particlessurface to be displayed
-    def post(self):
-        particlesSurface.blit(coinSpriteImgs[self.imgIndex], (self.xPos, self.yPos))
+        # time-based animation
+        self.frame_index = (self.frame_index + self.fps * dt) % len(self.frames)
+        self.image = self.frames[int(self.frame_index)]
 
+        # cull off-screen
 
-#Initializing array to hold instances of coin particles
-coinParticles = []
+        if self.rect.right < 0 or self.rect.left > screen_rect.width or self.rect.bottom < -300 or self.rect.top > screen_rect.height:
+            self.kill()
+
+coinsSpriteGroup = pygame.sprite.Group()
 
 #create a list of images tied to their respective letter
 pressedLetterImgList = {}
@@ -179,6 +212,11 @@ for i, pos in otherKeyPositions.items():
     img = pressedKeyImgList[label]
     keySprites[i] = (img, pos)
 
+
+def spawnCoin(x, y, count):
+    for _ in range(count):
+        coinsSpriteGroup.add(CoinSprite(x,y))
+
 def grabWord():
     if not WORDS:
         return None
@@ -192,6 +230,8 @@ def onSuccessfulTypedWord():
     pastWordsList.append(word)
 
     typedBuffer = ""
+
+    spawnCoin(baseX + getWordPxWidth(nextWordsList[0]) / 2, baseY + 50, 10)
 
     new_word = grabWord()
     if new_word is not None:
@@ -244,7 +284,7 @@ def drawNextWords():
         if i < len(typedBuffer):
             if not ch == " ":
                 color = correctWordColor 
-                if ch == typedBuffer[i]:
+                if ch == typedBuffer[i]:            
                     color = correctWordColor 
                 else:
                     color = incorrectWordColor
@@ -327,6 +367,9 @@ def handleKeysDown(event):
 
 while running:
 
+    dt = clock.tick(targetFPS) / 1000
+    screen_rect = screen.get_rect()
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -365,10 +408,9 @@ while running:
     screen.blit(coverTextMask,(0,100))
 
     #Blit the particle surface to the screen
+    coinsSpriteGroup.update(dt, screen_rect)
     particlesSurface.fill((0,0,0,0))
-    for p in coinParticles:
-        p.update()
-        p.post()
+    coinsSpriteGroup.draw(particlesSurface)
     screen.blit(particlesSurface,(0,0))
 
 
