@@ -3,6 +3,9 @@ import pygame
 import random
 from collections import deque
 
+from pathlib import Path
+import sys
+
 
 #pygame setup
 pygame.init()
@@ -20,6 +23,7 @@ renderSurface = pygame.Surface((renderWidth, renderHeight))
 #setting up display window
 displayWidth, displayHeight = 1920, 1080
 screen = pygame.display.set_mode((displayWidth, displayHeight))
+pygame.display.set_caption("typingClickerTestBuild")
 
 
 #Setting up surface(s) on which we can display our particle effects.
@@ -30,8 +34,13 @@ particlesSurface.fill((0,0,0,0))
 otherTextSurface = pygame.Surface((displayWidth, displayHeight), pygame.SRCALPHA)
 otherTextSurface.fill((0,0,0,0))
 
+#loads assets from temp file if ran from outside typical dev folder (for playtest .exes)
+def resource_path(relative):
+    base = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)
+    return (Path(base, relative))
+
 #Fonts
-pixelifyFontPath = "resources/Fonts/PixelifySans-SemiBold.ttf"
+pixelifyFontPath = resource_path("resources/Fonts/PixelifySans-SemiBold.ttf")
 wordsFont = pygame.font.Font(pixelifyFontPath, size = 75)
 otherTextFont = pygame.font.Font(pixelifyFontPath, size = 50)
 debugFont = pygame.font.Font(None, 24)
@@ -44,26 +53,26 @@ defaultWordColor = (0,0,0)
 backgroundColor = (200,200,200)
 
 #load images
-deskImg = pygame.image.load('resources/Sprites/desk.png')
-frameImg = pygame.image.load('resources/Sprites/frame.png')
-allKeysImg = pygame.image.load('resources/Sprites/allKeys.png')
+deskImg = pygame.image.load(resource_path('resources/Sprites/desk.png'))
+frameImg = pygame.image.load(resource_path('resources/Sprites/frame.png'))
+allKeysImg = pygame.image.load(resource_path('resources/Sprites/allKeys.png'))
 
 #load sound effects
 keyboardSounds = {}
 for i in range(1,12):
-    keyboardSounds[i] = pygame.mixer.Sound(f"resources/Audio/KeyboardSounds/keyDown/keyDown{i}.wav")
+    keyboardSounds[i] = pygame.mixer.Sound(resource_path(f"resources/Audio/KeyboardSounds/keyDown/keyDown{i}.wav"))
     keyboardSounds[i].set_volume(1.0)
 
 for i in range(1,5):
     index = i + 11
-    keyboardSounds[index] = pygame.mixer.Sound(f"resources/Audio/KeyboardSounds/spaceBar/spaceBar{i}.wav")
+    keyboardSounds[index] = pygame.mixer.Sound(resource_path(f"resources/Audio/KeyboardSounds/spaceBar/spaceBar{i}.wav"))
     keyboardSounds[index].set_volume(1.0)
 
-successFulWordSound = pygame.mixer.Sound('resources/Audio/coinGet.wav')
+successFulWordSound = pygame.mixer.Sound(resource_path('resources/Audio/coinGet.wav'))
 successFulWordSound.set_volume(.3)
 
 #load all the Words
-with open('resources/WordBanks/words.txt', 'r') as f:
+with open(resource_path('resources/WordBanks/words.txt', 'r')) as f:
     WORDS = f.read().split()
 
 # set to True to simulate an empty words list for testing
@@ -234,7 +243,7 @@ class SpriteSheet(object):
 #Class to hold the coin sprite and handle animating/updating the coin particles
 class CoinSprite(pygame.sprite.Sprite):
 
-    spriteSheet = SpriteSheet("resources/Sprites/coinSpriteSheet.png")
+    spriteSheet = SpriteSheet(resource_path("resources/Sprites/coinSpriteSheet.png"))
     FRAMES = spriteSheet.load_strip((0, 0, 20, 20), image_count=8, colorkey=-1)
 
     def __init__(self, x, y):
@@ -270,11 +279,11 @@ coinsSpriteGroup = pygame.sprite.Group()
 #create a list of images tied to their respective letter
 pressedLetterImgList = {}
 for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" :
-    pressedLetterImgList[letter] = pygame.image.load(f"resources/Sprites/pressed{letter}.png")
+    pressedLetterImgList[letter] = pygame.image.load(resource_path(f"resources/Sprites/pressed{letter}.png"))
 
 pressedKeyImgList = {}
 for key in ["Colon", "Comma", "Delete", "lShift", "Period", "Question", "Quote", "rShift", "Space"] :
-    pressedKeyImgList[key] = pygame.image.load(f"resources/Sprites/pressed{key}.png")
+    pressedKeyImgList[key] = pygame.image.load(resource_path(f"resources/Sprites/pressed{key}.png"))
 
 #When a keycode enters, a plain text version returns
 def letterLabelfromKey(keycode):
