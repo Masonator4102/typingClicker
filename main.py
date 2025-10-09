@@ -44,6 +44,7 @@ pixelifyFontPath = resource_path("resources/Fonts/PixelifySans-SemiBold.ttf")
 wordsFont = pygame.font.Font(pixelifyFontPath, size = 75)
 otherTextFont = pygame.font.Font(pixelifyFontPath, size = 50)
 debugFont = pygame.font.Font(None, 24)
+tempMoneyFont = pygame.font.Font(None, 100)
 
 #Colors
 correctWordColor = (30,255,20)
@@ -72,7 +73,7 @@ successFulWordSound = pygame.mixer.Sound(resource_path('resources/Audio/coinGet.
 successFulWordSound.set_volume(.3)
 
 #load all the Words
-with open(resource_path('resources/WordBanks/words.txt', 'r')) as f:
+with open(resource_path('resources/WordBanks/words.txt'), 'r') as f:
     WORDS = f.read().split()
 
 # set to True to simulate an empty words list for testing
@@ -152,61 +153,64 @@ otherKeyNames = {
 
 totalMoney = 0
 moneyPerKey = {
-    "a" : 1,
-    "A" : 1,
-    "b" : 1,
-    "B" : 1,
-    "c" : 1,
-    "C" : 1,
-    "d" : 1,
-    "D" : 1,
-    "e" : 1,
-    "E" : 1,
-    "f" : 1,    
-    "F" : 1,
-    "g" : 1,
-    "G" : 1,
-    "h" : 1,
-    "H" : 1,
-    "i" : 1,
-    "I" : 1,
-    "j" : 1,
-    "J" : 1,
-    "k" : 1,
-    "K" : 1,    
-    "l" : 1,
-    "L" : 1,
-    "m" : 1,
-    "M" : 1,
-    "n" : 1,
-    "N" : 1,
-    "o" : 1,
-    "O" : 1,
-    "p" : 1,
-    "P" : 1,
-    "q" : 1,
-    "Q" : 1,
-    "r" : 1,
-    "R" : 1,
-    "s" : 1,
-    "S" : 1,
-    "t" : 1,
-    "T" : 1,
-    "u" : 1,
-    "U" : 1,
-    "v" : 1,
-    "V" : 1,
-    "w" : 1,
-    "W" : 1,
-    "x" : 1,
-    "X" : 1,
-    "y" : 1,
-    "Y" : 1,
-    "z" : 1,
-    "Z" : 1,
+    "a" : .1,
+    "A" : .1,
+    "b" : .1,
+    "B" : .1,
+    "c" : .1,
+    "C" : .1,
+    "d" : .1,
+    "D" : .1,
+    "e" : .1,
+    "E" : .1,
+    "f" : .1,    
+    "F" : .1,
+    "g" : .1,
+    "G" : .1,
+    "h" : .1,
+    "H" : .1,
+    "i" : .1,
+    "I" : .1,
+    "j" : .1,
+    "J" : .1,
+    "k" : .1,
+    "K" : .1,    
+    "l" : .1,
+    "L" : .1,
+    "m" : .1,
+    "M" : .1,
+    "n" : .1,
+    "N" : .1,
+    "o" : .1,
+    "O" : .1,
+    "p" : .1,
+    "P" : .1,
+    "q" : .1,
+    "Q" : .1,
+    "r" : .1,
+    "R" : .1,
+    "s" : .1,
+    "S" : .1,
+    "t" : .1,
+    "T" : .1,
+    "u" : .1,
+    "U" : .1,
+    "v" : .1,
+    "V" : .1,
+    "w" : .1,
+    "W" : .1,
+    "x" : .1,
+    "X" : .1,
+    "y" : .1,
+    "Y" : .1,
+    "z" : .1,
+    "Z" : .1,
     }    
-    
 
+totalMoneyString = "$" + str(round(totalMoney, 4))
+totalMoneyText = tempMoneyFont.render(totalMoneyString, True, (20,150,20))
+otherTextSurface.fill((0,0,0,0))
+otherTextSurface.blit(totalMoneyText, (10,10))
 
 #####==============CLASSES========================#####
 
@@ -239,12 +243,12 @@ class SpriteSheet(object):
         return self.images_at(tups, colorkey)
 
 
-
 #Class to hold the coin sprite and handle animating/updating the coin particles
 class CoinSprite(pygame.sprite.Sprite):
 
     spriteSheet = SpriteSheet(resource_path("resources/Sprites/coinSpriteSheet.png"))
     FRAMES = spriteSheet.load_strip((0, 0, 20, 20), image_count=8, colorkey=-1)
+    FRAMES = [pygame.transform.scale(frame, (30, 30)) for frame in FRAMES]
 
     def __init__(self, x, y):
         super().__init__()
@@ -327,6 +331,18 @@ def calculateMoney(word):
 
     return wordScore
 
+def countLetters(word):
+    
+    letterCount = 0
+    
+    if word:
+        for c in word:
+            letterCount += 1
+        return letterCount
+    else:
+        return 0        
+
+    
 
 def onSuccessfulTypedWord():
 
@@ -338,9 +354,10 @@ def onSuccessfulTypedWord():
     pastWordsList.append(word)
 
 
-    spawnCoin(baseX + getWordPxWidth(nextWordsList[0]) / 2, baseY + 50, calculateMoney(typedBuffer))
+    spawnCoin(baseX + getWordPxWidth(nextWordsList[0]) / 2, baseY + 50, countLetters(word))
     totalMoney +=  calculateMoney(typedBuffer)
-    totalMoneyText = otherTextFont.render(str(totalMoney), True, (0,0,0,0))
+    totalMoneyString = "$" + str(round(totalMoney, 2))
+    totalMoneyText = tempMoneyFont.render(totalMoneyString, True, (20,150,20))
     otherTextSurface.fill((0,0,0,0))
     otherTextSurface.blit(totalMoneyText, (10,10))
 
