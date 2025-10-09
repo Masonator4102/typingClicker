@@ -6,10 +6,11 @@ from collections import deque
 
 #pygame setup
 pygame.init()
+pygame.mixer.init()
+pygame.mixer.set_num_channels(64)
 clock = pygame.time.Clock()
 targetFPS = 60
 running = True
-
 
 #setting up render surface
 renderWidth, renderHeight = 192,108
@@ -33,6 +34,7 @@ otherTextSurface.fill((0,0,0,0))
 pixelifyFontPath = "resources/Fonts/PixelifySans-SemiBold.ttf"
 wordsFont = pygame.font.Font(pixelifyFontPath, size = 75)
 otherTextFont = pygame.font.Font(pixelifyFontPath, size = 50)
+debugFont = pygame.font.Font(None, 24)
 
 #Colors
 correctWordColor = (30,255,20)
@@ -45,6 +47,20 @@ backgroundColor = (200,200,200)
 deskImg = pygame.image.load('resources/Sprites/desk.png')
 frameImg = pygame.image.load('resources/Sprites/frame.png')
 allKeysImg = pygame.image.load('resources/Sprites/allKeys.png')
+
+#load sound effects
+keyboardSounds = {}
+for i in range(1,12):
+    keyboardSounds[i] = pygame.mixer.Sound(f"resources/Audio/KeyboardSounds/keyDown/keyDown{i}.wav")
+    keyboardSounds[i].set_volume(1.0)
+
+for i in range(1,5):
+    index = i + 11
+    keyboardSounds[index] = pygame.mixer.Sound(f"resources/Audio/KeyboardSounds/spaceBar/spaceBar{i}.wav")
+    keyboardSounds[index].set_volume(1.0)
+
+successFulWordSound = pygame.mixer.Sound('resources/Audio/coinGet.wav')
+successFulWordSound.set_volume(.3)
 
 #load all the Words
 with open('resources/WordBanks/words.txt', 'r') as f:
@@ -65,6 +81,11 @@ currentWordPxLen = 0
 baseX = displayWidth / 2
 baseY = displayHeight/ 10
 coinsOriginLoc = displayWidth/10, displayHeight/10
+
+
+#Turn this on to get an FPS readout 
+debugging = False
+
 
 #Key and letter positions
 letterKeyPositions = {
@@ -220,15 +241,14 @@ class CoinSprite(pygame.sprite.Sprite):
         super().__init__()
         self.frames = self.FRAMES           
         self.frame_index = 0.0
-        self.xNudge = random.uniform(-50, 50)
+        self.xNudge = random.uniform(-25, 25)
         self.fps = 16                
 
         self.image = self.frames[0]
         self.rect = self.image.get_rect(topleft=(x + self.xNudge, y))
-
-        self.vx = random.uniform(-2, 2)
-        self.vy = random.uniform(-2,-8)
-        self.gravity = 0.3
+        self.vx = self.xNudge * 0.25
+        self.vy = random.uniform(-8,-15)
+        self.gravity = .7
 
     def update(self, dt, screen_rect):
         # physics
@@ -299,8 +319,9 @@ def calculateMoney(word):
     return wordScore
 
 
-
 def onSuccessfulTypedWord():
+
+    successFulWordSound.play()
     global pastWordsList, nextWordsList, typedBuffer, totalMoney
     if not nextWordsList:
         return
@@ -415,9 +436,21 @@ def getWordPxWidth(word):
 def getTextPxWidth(text):
     return sum(wordsFont.size(c)[0] for c in text)
 
+def playKeySound(event):
+
+    if not event.key == pygame.K_SPACE:
+        choice = random.randint(1,11)
+        pygame.mixer.Sound.play(keyboardSounds[choice])
+    else:
+        choice = random.randint(12,15)
+        pygame.mixer.Sound.play(keyboardSounds[choice])
+
+
 #Called whenever a key is pressed down within running loop
 def handleKeysDown(event):
     global typedBuffer
+
+    playKeySound(event)
 
     mods = pygame.key.get_mods()
     ctrl_down = mods & pygame.KMOD_LCTRL or mods & pygame.KMOD_CTRL
@@ -495,6 +528,11 @@ while running:
     coinsSpriteGroup.update(dt, screen_rect)
     particlesSurface.fill((0,0,0,0))
     coinsSpriteGroup.draw(particlesSurface)
+
+    #Debug info will be shown if debugging boolean switch on
+    if debugging:
+        fps_text = debugFont.render(f"FPS: {clock.get_fps():.1f}", True, (200, 255, 200))
+        screen.blit(fps_text, (0,0))
     screen.blit(otherTextSurface,(0,0))
     screen.blit(particlesSurface,(0,0))
 
