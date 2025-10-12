@@ -71,6 +71,7 @@ for i in range(1,5):
 
 successFulWordSound = pygame.mixer.Sound(resource_path('resources/Audio/coinGet.wav'))
 successFulWordSound.set_volume(.3)
+volumeKnobSound = pygame.mixer.Sound(resource_path('resources/Audio/keyboardSounds/VolumeKnob/volumeKnob.wav'))
 
 #load all the Words
 with open(resource_path('resources/WordBanks/words.txt'), 'r') as f:
@@ -464,13 +465,15 @@ def getTextPxWidth(text):
 
 def playKeySound(event):
 
-    if not event.key == pygame.K_SPACE:
+    if not event.key == pygame.K_SPACE and not event.scancode == 128 and not event.scancode == 129:
         choice = random.randint(1,11)
         pygame.mixer.Sound.play(keyboardSounds[choice])
-    else:
+    elif event.key == pygame.K_SPACE:
         choice = random.randint(12,15)
         pygame.mixer.Sound.play(keyboardSounds[choice])
-
+    else: 
+        print("volknob")
+        pygame.mixer.Sound.play(volumeKnobSound)
 
 #Called whenever a key is pressed down within running loop
 def handleKeysDown(event):
